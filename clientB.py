@@ -9,4 +9,4 @@ while True:
     if not data:
         print("Disconnected")
         break
-    print("Received:", data.decode())
+    print(data.decode())
