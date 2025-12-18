@@ -1,7 +1,7 @@
 import socket
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect(("127.0.0.1", 5000))
+s.connect(("72.62.81.113", 5000))
 
 while True:
     msg = input("> ")
