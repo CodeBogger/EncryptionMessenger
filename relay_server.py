@@ -48,6 +48,9 @@ def handle_client(conn, addr):
 def main():
     # This creates a tcp socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # bypasses "Address already in use" error
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     # Incoming traffic requests get sent to server
     server.bind((HOST, PORT))
     # Socket is now listening (bascially open to requests)

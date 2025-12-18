@@ -34,7 +34,7 @@ def recv_exact(sock, n):
         # Ask the OS for the remaining number of bytes.
         # IMPORTANT:
         # - recv() may return fewer bytes than requested
-        # - recv() BLOCKS here until at least 1 byte arrives
+        # - recv() blocks here until at least 1 byte arrives
         chunk = sock.recv(n - len(data))
 
         # If recv() returns b"":
@@ -50,13 +50,6 @@ def recv_exact(sock, n):
     # At this point, data is EXACTLY n bytes long
     return data
 
-# In over-simplified terms, the message recieved will be an array of bytes
-# The message will have 2 "parts"
-# Authors name, and the content of message
-# If the message was "Oisin: Hello everyone"
-# It would be "5, Oisin, 14, Hello everyone"
-# 5 is length of message author "oisin"
-# 14 is length of message "Hello eveyone"
 def recv_message(sock):
 
     # This will find the length of the bytes for message
@@ -70,23 +63,23 @@ def recv_message(sock):
     # read exactly that many bytes.
     name_bytes = recv_exact(sock, name_len)
 
-    # Convert bytes → string
+    # Convert bytes to string
     name = name_bytes.decode("utf-8")
 
-    # ---- STEP 3: READ MESSAGE LENGTH ----
+    # READ MESSAGE LENGTH
     # Read exactly 4 bytes for the message length.
     msg_len_bytes = recv_exact(sock, 4)
 
     # Convert those 4 bytes into a Python integer.
     msg_len = struct.unpack("!I", msg_len_bytes)[0]
 
-    # ---- STEP 4: READ MESSAGE ----
+    # READ MESSAGE
     # Read exactly msg_len bytes from the stream.
     msg_bytes = recv_exact(sock, msg_len)
 
-    # Convert bytes → string
+    # Convert bytes to string
     msg = msg_bytes.decode("utf-8")
 
-    # Return one COMPLETE logical message
+    # Return one logical message
     return name, msg
 
