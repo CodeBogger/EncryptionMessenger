@@ -1,6 +1,7 @@
 import json, struct
 
 def send_message(sock, obj: dict):
+    
     # converts dict into JSON string then encodes to bytes
     data = json.dumps(obj).encode("utf-8")
     # creates a 4 byte header with length of data and sends it with the data
@@ -23,6 +24,7 @@ def recv_exact(sock, n: int) -> bytes:
 # Receives a message and returns the decoded dict
 def recv_message(sock):
     # reads the 4 byte header first
+
     header = recv_exact(sock, 4)
 
     if not header:

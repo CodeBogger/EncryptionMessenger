@@ -2,7 +2,6 @@ import socket
 
 # we need threading to stop multiple clients using same function anyway
 import threading
-
 from protocol import send_message, recv_message
 
 HOST = "0.0.0.0"   # Listen on all network interfaces
@@ -17,15 +16,25 @@ def handle_client(conn, addr):
     print(f"[+] Connected: {addr}")
 
     msg = recv_message(conn)
-    
-    name = msg.get("name").strip()
+
+    name = None
+
+    # recieves the name from the client
+    if isinstance(msg, dict) and msg.get("TYPE") == "REGISTER":
+        name = msg.get("NAME")
+
+    # if the name is null, then it closes the TCP socket of that client and returns
+    if not name:
+        send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Invalid registration message"})
+        conn.close()
+        return
     
     # if 2 clients try connect at same time the lock makes sure each action happens 1 after the other
     with lock:
         
         # checks if the name is already taken, gives an "ERROR" type message
         if name in clients:
-            send_message(conn, {"type": "ERROR", "message": "Name already taken"})
+            send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Name already taken"})
             conn.close()
             return
         
@@ -33,33 +42,36 @@ def handle_client(conn, addr):
         clients[name] = conn
 
         # sends a confirmation message back to the client
-        send_message(conn, {"type": "REGISTERED", "text": f"Registered as {name}"})
-        print(f"[+] User registered: {name} from {addr}")
+    send_message(conn, {"TYPE": "REGISTERED", "MESSAGE": f"Registered as {name}"})
+    print(f"[+] User registered: {name} from {addr}")
 
+    try:
         while True:
-            # msg recieved from client
+            
+            # recieves the message from the client
             msg = recv_message(conn)
-
             if not msg:
                 break
-            
-            # checks if the type is SEND
-            if msg.get("type") == "SEND":
-                to = msg.get("to")
-                txt = msg.get("message")
+                
+            print(f"[+] Message from {name}: {msg}")
 
-                with lock:
-                    target_conn = clients.get(to)
-                # if target_conn not null, then send a message to that connection
-                if target_conn:
-                    send_message(target_conn, {"type": "MSG", "from": name, "message": txt})
+            if msg.get("TYPE") == "SEND": 
+                text = msg.get("MESSAGE")
+
+                name = msg.get("TO")
+
+                if name in clients:
+                    send_message(clients[name], {"FROM": msg.get("FROM"), "TYPE": "RECIEVE", "MESSAGE": text})
                 else:
-                    send_message(conn, {"type": "ERROR", "message": f"User {to} not found"})
-        
-        # client disconnected, remove from clients dict
-        print(f"[-] Disconnected: {addr}")
+                    send_message(conn, {"TYPE": "ERROR", "MESSAGE": "User not found"})
+            
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    finally:
+        print(f"[-] User disconnected: {name} from {addr}")
         with lock:
-            if clients.get(name) == conn:
+            if name in clients:
                 del clients[name]
         conn.close()
 

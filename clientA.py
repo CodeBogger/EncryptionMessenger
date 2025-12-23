@@ -9,8 +9,7 @@ user = input("Enter your name: ").strip()
 to_connect = input("Enter the name of the person you want to connect to: ").strip()
 
 # "type" denotes the type of message being sent, in this case being a registration message
-send_message(s, {"type": "REGISTER", "name": user})
-print(recv_message(s))
+send_message(s, {"TYPE": "REGISTER", "NAME": user})
 
 while True:
     msg = input("> ")
@@ -18,8 +17,10 @@ while True:
         continue
     
     # the type is a SEND message, that will be sent to the other user
+    # each key in dict points to a value that will be used in the relay server file
     send_message(s, {
-        "type": "SEND", 
-        "to": to_connect, 
-        "message": msg
+        "FROM": user,
+        "TYPE": "SEND", 
+        "TO": to_connect, 
+        "MESSAGE": msg
     })
