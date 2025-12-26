@@ -22,7 +22,7 @@ class chat_room:
         return self.users[0]
 
     def broadcast(self, socket, name):
-        send_message(socket, {"TYPE": "BROADCAST", "MESSAGE": f"Welcome to the chat room '{name}'!"})
+        send_message(socket, {"NAME": name, "ROOM": self.room_name, "TYPE": "BROADCAST", "MESSAGE": f"Welcome to the chat room {name}!"})
 
     def in_room(self, user):
         return user in self.users
