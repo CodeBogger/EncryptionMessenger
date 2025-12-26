@@ -35,7 +35,7 @@ def handle_client(conn, addr):
         send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Invalid registration message"})
         conn.close()
         return
-    
+
     # if 2 clients try connect at same time the lock makes sure each action happens 1 after the other
     with lock:
         
@@ -49,40 +49,35 @@ def handle_client(conn, addr):
         clients[name] = conn
 
         # sends a confirmation message back to the client
-        send_message(conn, {"TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!"})
 
-    print("\nAvailable chat rooms:")
-    for room_name, room in chat_rooms.items():
-        print(f"- {room_name} (Owner: {room.owner()})")
-        print(f"  Users: {room.list_users()}")
-    print("\n")
+        # send message with chat_room info
+        # dict with room instances -> users
+        mapped_rooms = dict()
 
-    chat_room_name = None
+        for chat_room_instance, chat_room_name in chat_rooms.items():
+            mapped_rooms[chat_room_name] = chat_room_instance.list_users()
 
-    if len(chat_rooms) > 0:
-        user_choice = None
+        send_message(conn, {"CHAT_ROOMS": mapped_rooms, "TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!\n"})
+    
+    # Now waits for the client to either create or join a room
 
-        while user_choice != "y" and user_choice != "n":
-            user_choice = input("Do you want to join an existing chat room? (y/n): ").lower()
+    msg = recv_message(conn)
 
-        if user_choice == "y":
+    # handles whether the client wants to join or create a room
+    if msg and msg.get("TYPE") == "CREATE_ROOM":
 
-            while chat_room_name not in chat_rooms.keys():
-                chat_room_name = input("Enter the name of the chat room to join: ")
+        Room = chat_room(msg.get("ROOM_NAME"), conn, name)
+        chat_rooms[msg.get("ROOM_NAME")] = Room
 
-        else:
-            chat_room_name = input("Enter a name for the new chat room: ")
-            create_room(conn, chat_room_name, name, chat_rooms)
-            print("\n")
-    else:
-        print("No chat rooms available. Please create one on the server first.")
-        chat_room_name = input("Enter a name for the new chat room: ")
+    elif msg and msg.get("TYPE") == "JOIN_ROOM":
 
-        create_room(conn, chat_room_name, name, chat_rooms)
-        print("\n")
+        room_name = msg.get("ROOM_NAME")
+        Room = chat_rooms.get(room_name)
+        if Room:
+            Room.add_user(conn, name)
 
-    send_message(conn, {"TYPE": "BROADCAST", "MESSAGE": f"{msg.get('MESSAGE') if msg else 'You have joined the server.'}\n"})
-    print(f"[+] User registered: {name} from {addr}, Room: {chat_room_name}")
+    room = msg.get("ROOM_NAME") if msg else None
+    send_message(conn, {"TYPE": "JOINED", "MESSAGE": f"Welcome to {room}, {name}!"})
 
     try:
         while True:
@@ -92,9 +87,10 @@ def handle_client(conn, addr):
             if not msg:
                 break
 
-            if msg.get("TYPE") == "SEND" or msg.get("TYPE") == "BROADCAST":
+            if msg.get("TYPE") == "SEND":
                 
                 room_instance = chat_rooms.get(room)
+
                 if room_instance:
                     room_instance.send_message(name, msg.get("MESSAGE"), clients)
 

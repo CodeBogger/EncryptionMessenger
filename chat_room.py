@@ -6,23 +6,19 @@ class chat_room:
 
     def __init__(self, room_name, socket, name):
         self.room_name = room_name
-        self.add_user(socket, name)
+        self.add_user(name)
 
-    def add_user(self, socket, name):
-        self.broadcast(socket, name)
-        self.users.append(socket)
+    def add_user(self, name):
+        self.users.append(name)
     
     def remove_user(self, user):
         self.users.remove(user)
 
     def list_users(self):
         return self.users
-     
-    def owner(self):
-        return self.users[0]
 
-    def broadcast(self, socket, name):
-        send_message(socket, {"NAME": name, "ROOM": self.room_name, "TYPE": "BROADCAST", "MESSAGE": f"Welcome to the chat room {name}!"})
+    # def broadcast(self, socket, name):
+    #    send_message(socket, {"NAME": name, "ROOM": self.room_name, "TYPE": "BROADCAST", "MESSAGE": f"Welcome to the chat room {name}!"})
 
     def in_room(self, user):
         return user in self.users
@@ -30,4 +26,5 @@ class chat_room:
     def send_message(self, from_user, message, sockets_dict):
         for user in self.users:
             if user != from_user:
+                print(f"SENT MESSAGE TO {user}")
                 send_message(sockets_dict[user], {"TYPE": "RECIEVE", "FROM": from_user, "MESSAGE": message})
