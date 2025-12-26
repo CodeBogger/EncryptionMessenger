@@ -1,4 +1,5 @@
 import socket
+from chat_room import chat_room
 
 # we need threading to stop multiple clients using same function anyway
 import threading
@@ -9,6 +10,7 @@ PORT = 5000        # Port clients will connect to
 
 clients = dict()      # List of connected client sockets
 lock = threading.Lock()
+chat_rooms = dict()  # Dictionary to hold chat room instances, maps room name -> Room instance
 
 # Every client will thats connected to the relay server will have an instance of this (the instance is hosted here ofc)
 def handle_client(conn, addr):
@@ -18,10 +20,12 @@ def handle_client(conn, addr):
     msg = recv_message(conn)
 
     name = None
+    room = None
 
     # recieves the name from the client
-    if isinstance(msg, dict) and msg.get("TYPE") == "REGISTER":
+    if isinstance(msg, dict) and msg.get("TYPE") == "BROADCAST":
         name = msg.get("NAME")
+        room = msg.get("ROOM")
 
     # if the name is null, then it closes the TCP socket of that client and returns
     if not name:
@@ -42,8 +46,9 @@ def handle_client(conn, addr):
         clients[name] = conn
 
         # sends a confirmation message back to the client
-    send_message(conn, {"TYPE": "REGISTERED", "MESSAGE": f"Registered as {name}"})
-    print(f"[+] User registered: {name} from {addr}")
+        send_message(conn, {"TYPE": "REGISTERED", "MESSAGE": f"Welcome to the server, {name}!"})
+
+    print(f"[+] User registered: {name} from {addr}, Room: {room}")
 
     try:
         while True:
@@ -52,19 +57,13 @@ def handle_client(conn, addr):
             msg = recv_message(conn)
             if not msg:
                 break
+
+            if msg.get("TYPE") == "SEND" or msg.get("TYPE") == "BROADCAST":
                 
-            print(f"[+] Message from {name}: {msg}")
+                room_instance = chat_rooms.get(room)
+                if room_instance:
+                    room_instance.send_message(name, msg.get("MESSAGE"), clients)
 
-            if msg.get("TYPE") == "SEND": 
-                text = msg.get("MESSAGE")
-
-                name = msg.get("TO")
-
-                if name in clients:
-                    send_message(clients[name], {"FROM": msg.get("FROM"), "TYPE": "RECIEVE", "MESSAGE": text})
-                else:
-                    send_message(conn, {"TYPE": "ERROR", "MESSAGE": "User not found"})
-            
     except Exception as e:
         print(f"Error: {e}")
     
