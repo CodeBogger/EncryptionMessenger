@@ -17,13 +17,13 @@ def reciever_loop(s: socket.socket):
             break
             
         if msg.get("TYPE") == "RECIEVE":
-            print(f"{msg["FROM"]}: {msg["MESSAGE"]}")
+            print(f"{msg['FROM']}: {msg['MESSAGE']}")
         elif msg.get("TYPE") == "REGISTERED":
-            print(f"[Server]: {msg.get("MESSAGE")}")
+            print(f"[Server]: {msg.get('MESSAGE')}")
         elif msg.get("TYPE") == "BROADCAST":
-            print(f"[Broadcast] {msg.get("MESSAGE")}")
+            print(f"[Broadcast] {msg.get('MESSAGE')}")
         else:
-            print(f"Received unknown message type: {msg.get("TYPE")} - MSG: {msg.get("MESSAGE")}")
+            print(f"Received unknown message type: {msg.get('TYPE')} - MSG: {msg.get('MESSAGE')}")
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
 
     # print welcome message
     if msg and msg.get("TYPE") == "REGISTERED":
-        print(f"\n[Server]: {msg.get("MESSAGE")}")
+        print(f"\n[Server]: {msg.get('MESSAGE')}")
 
     # gets the chat rooms from the server from the regristration message
     chat_rooms = msg.get("CHAT_ROOMS") if msg else {}
@@ -57,7 +57,7 @@ def main():
 
         while user_choice != "y" and user_choice != "n":
             user_choice = input("Do you want to join an existing chat room? (y/n): ").lower()
-
+ 
         if user_choice == "y":
 
             while chat_room_name not in chat_rooms.keys():
@@ -86,7 +86,6 @@ def main():
 
     # Sender loop
     while True:
-        
         text = input()
 
         if not text:
