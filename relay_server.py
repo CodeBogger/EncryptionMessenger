@@ -54,7 +54,7 @@ def handle_client(conn, addr):
         # dict with room instances -> users
         mapped_rooms = dict()
 
-        for chat_room_instance, chat_room_name in chat_rooms.items():
+        for chat_room_name, chat_room_instance in chat_rooms.items():
             mapped_rooms[chat_room_name] = chat_room_instance.list_users()
 
         send_message(conn, {"CHAT_ROOMS": mapped_rooms, "TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!\n"})
@@ -74,7 +74,7 @@ def handle_client(conn, addr):
         room_name = msg.get("ROOM_NAME")
         Room = chat_rooms.get(room_name)
         if Room:
-            Room.add_user(conn, name)
+            Room.add_user(name)
 
     room = msg.get("ROOM_NAME") if msg else None
     send_message(conn, {"TYPE": "JOINED", "MESSAGE": f"Welcome to {room}, {name}!"})

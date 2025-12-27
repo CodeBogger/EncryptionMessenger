@@ -49,8 +49,8 @@ def main():
 
         print("\nAvailable chat rooms:")
 
-        for room, users in chat_rooms:
-            print(f"- {room.get("NAME")} (Owner: {users[0]})")
+        for room, users in chat_rooms.items():
+            print(f"- {room} (Owner: {users[0]})")
             print(f"  Users: {users}")
 
         print("\n")
@@ -87,7 +87,7 @@ def main():
     # Sender loop
     while True:
         
-        text = input("You: ")
+        text = input()
 
         if not text:
             continue
