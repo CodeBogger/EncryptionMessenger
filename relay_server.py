@@ -26,16 +26,19 @@ def assign_room(conn, name):
     room_name = msg.get("ROOM_NAME") if msg else None
 
     # handles whether the client wants to join or create a room
-
     if msg and msg.get("TYPE") == "CREATE_ROOM":
         create_room(room_name, name)
 
     elif msg and msg.get("TYPE") == "JOIN_ROOM":
-        
         # if user intends to join a room, it utilizes the add_user() function and adds the respective user
         room = chat_rooms.get(room_name)
         if room:
-            room.add_user(name)
+            if room.has_password():
+                room.add_user(name, msg.get("PASSWORD"))
+            else:
+                room.add_user(name)
+        else:
+            send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Room doesn't exist"})
 
     return room_name
 

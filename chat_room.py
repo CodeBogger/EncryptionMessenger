@@ -9,14 +9,22 @@ class chat_room:
         self.room_name = room_name
         self.admins = [name]
         self.users = []
-        self.add_user(name)
+        self.addUser(name)
+        self.hasPassword = False
+        self.password = ""
         # The first person in list will be the owner of the room
 
     def get_chat_room_name(self):
         return self.room_name
     
-    def add_user(self, name):
-        self.users.append(name)
+    def has_password(self):
+        return self.hasPassword
+    
+    def addUser(self, name, password = ""):
+        if not self.has_password():
+            self.users.append(name)
+        if self.has_password() and self.password == password:
+            self.users.append(name)
     
     # removes a user
     def remove_user(self, user):
@@ -40,24 +48,62 @@ class chat_room:
     
     # from_user is a default argument so broadcast msg essentially "bypasses" the check within the loop, printing to the user that joined also
     def send_message(self, type, message, clients, from_user=""):
-        if from_user in self.admins and message[0] == "!":
+        # commands
+        if message[0] == "!":
             msglist = message.split(" ")
             command = msglist[0]
+            # admin commands
+            if from_user in self.admins:
+                match command:
+                    # remove a user from chat
+                    case "!remove":
+                        user = msglist[1]
+                        self.users.remove(user)
+                        send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
+                    # lists all users
+                    case "!listusers":
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
+                    # make a user admin
+                    case "!makeadmin":
+                        user = msglist[1]
+                        if user in self.users: 
+                            self.admins.append(user)
+                            send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Made {user} admin"})
+                        else:
+                            send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"{user} does not exist"})
+                    # add password
+                    case "!addpassword":
+                        self.hasPassword = True
+                        self.password = msglist[1]
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Made {msglist[1]} the password"})
+                    case "!removepassword":
+                        self.hasPassword = False
+                        self.password = ""
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Removed password"})
+
+            # base commands
             match command:
-                case "!remove":
+                # returns what type of role the user has (admin/ guest)
+                case "!role":
                     user = msglist[1]
-                    self.users.remove(user)
-
-                case "!listusers":
-                    send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
-
-                case "!makeadmin":
-                    user = msglist[1]
-                    if user in self.users: 
-                        self.admins.append(user)
-                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Made {user} admin"})
+                    if user in self.admins:
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": "You are an admin"})
                     else:
-                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"{user} does not exist"}) 
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": "You are a member"})
+                case "!leave":
+                        self.users.remove(from_user)
+                        # If user is an admin remove from admin list
+                        if from_user in self.admins:
+                            self.admins.remove(from_user)
+                            # if no admins
+                            if len(self.admins) == 0:
+                                # make first user in users list admin
+                                self.admins.append(self.users.get(0))
+                        
+                        send_message(clients[from_user].get_socket(), {"TYPE": "REJOIN"})
+
+                        
+             
         else:
             # loops thru every user in that room and sends the corresponding message to them
             # .get_socket() is function in client.

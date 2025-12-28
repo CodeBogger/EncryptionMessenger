@@ -151,8 +151,8 @@ def create_room(socket, room_name, owner):
     send_message(socket, {"TYPE": "CREATE_ROOM", "ROOM_NAME": room_name, "OWNER": owner})
 
 # sends msg to socket, relay_server captures that msg and executes command to join a current room
-def join_room(socket, room_name):
-    send_message(socket, {"TYPE": "JOIN_ROOM", "ROOM_NAME": room_name})
+def join_room(socket, room_name, password = ""):
+    send_message(socket, {"TYPE": "JOIN_ROOM", "ROOM_NAME": room_name, "PASSWORD": password})
 
 def receiver_loop(s: socket.socket):
     # only placed allowed to call recv_message()
