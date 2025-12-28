@@ -33,9 +33,11 @@ def reciever_loop(s: socket.socket):
 def main():
     # creates a socket and connects to the server
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # This ip belongs to boggers vps
     s.connect(("72.62.81.113", 5000))
 
     user = input("Enter your username: ")
+
     send_message(s, {"TYPE": "SEND", "NAME": user})
 
     msg = recv_message(s)

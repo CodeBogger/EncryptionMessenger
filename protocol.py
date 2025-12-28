@@ -1,3 +1,7 @@
+# This is low level stuff, dont worry about too much, it works with bytes, and passes it to relay server
+# Checks of the object contents wont be done here (like "TYPE": "SEND" and stuff isnt dealt with in this file)
+
+
 import pickle, struct
 
 MAX_LEN = 10 * 1024 * 1024  # 10 MB safety cap
