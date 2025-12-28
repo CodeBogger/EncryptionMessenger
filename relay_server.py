@@ -4,13 +4,14 @@ import socket
 import threading
 from chat_room import chat_room
 from protocol import send_message, recv_message
+from client import client
 
 HOST = "0.0.0.0"   # Listen on all network interfaces
 PORT = 5000        # Port clients will connect to
 
-clients = dict()      # List of connected client sockets
-lock = threading.Lock()
+clients = dict()     # dict, maps user name -> client obj
 chat_rooms = dict()  # Dictionary to hold chat room instances, maps room name -> Room instance
+lock = threading.Lock()
 
 def create_room(room_name, owner):
     # create a new chat_room obj and assign respective room name to room object
@@ -18,6 +19,25 @@ def create_room(room_name, owner):
     chat_rooms[room_name] = temp_room
     # Prints out the room name and its creator
     print(f"[+] Room '{room_name}' created by {owner}")
+
+# the computation for assigning a user to a room, prompts user to join or create one
+def assign_room(conn, name):
+    msg = recv_message(conn)
+    room_name = msg.get("ROOM_NAME") if msg else None
+
+    # handles whether the client wants to join or create a room
+
+    if msg and msg.get("TYPE") == "CREATE_ROOM":
+        create_room(room_name, name)
+
+    elif msg and msg.get("TYPE") == "JOIN_ROOM":
+        
+        # if user intends to join a room, it utilizes the add_user() function and adds the respective user
+        Room = chat_rooms.get(room_name)
+        if Room:
+            Room.add_user(name)
+
+    return room_name
 
 # Every client will thats connected to the relay server will have an instance of this (the instance is hosted here ofc)
 def handle_client(conn, addr):
@@ -27,6 +47,7 @@ def handle_client(conn, addr):
     msg = recv_message(conn)
 
     name = None
+    chat_room_name = None
 
     # recieves the name from the client
     if isinstance(msg, dict) and msg.get("TYPE") == "SEND":
@@ -48,60 +69,48 @@ def handle_client(conn, addr):
             return
         
         # otherwise adds the client to the clients dict
-        clients[name] = conn
+        # clients[name] = conn
 
         # sends a confirmation message back to the client
 
         # send message with chat_room info
-        # dict with room instances -> users
-        mapped_rooms = dict()
+        send_message(conn, {"CHAT_ROOMS": chat_rooms, "TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!\n"})
 
-        # slightly redundant - may be initialized and appended to as class variable, but necessary for user to choose between rooms / create one
-        for chat_room_name, chat_room_instance in chat_rooms.items():
-            mapped_rooms[chat_room_name] = chat_room_instance.list_users()
+        # assign room computation (save in a function)
+        chat_room_name = assign_room(conn, name)
 
-        send_message(conn, {"CHAT_ROOMS": mapped_rooms, "TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!\n"})
-    
-    # Now waits for the client to either create or join a room
+        # maps client name -> client object
+        clients[name] = client(conn, name, chat_room_name)
 
-    msg = recv_message(conn)
-    room = None
-
-    # handles whether the client wants to join or create a room
-    if msg and msg.get("TYPE") == "CREATE_ROOM":
-
-        for c_name, c_instance in chat_rooms.items():
-            print(f"ROOM NAME: {c_name}, PEOPLE INSIDE ROOM: {c_instance.list_users()}")
-
-        create_room(msg.get("ROOM_NAME"), name)
-
-    elif msg and msg.get("TYPE") == "JOIN_ROOM":
-        
-        # if user intends to join a room, it utilizes the add_user() function and adds the respective user
-        room_name = msg.get("ROOM_NAME")
-        Room = chat_rooms.get(room_name)
-        if Room:
-            Room.add_user(name)
-
-    room = msg.get("ROOM_NAME") if msg else None
-    # broadcasts user to room regardless if they created it or joined
-    chat_rooms[room].broadcast(clients, name)
-    # result of [Broadcast] Welcome to the...
+        # broadcasts user to room regardless if they created it or joined
+        chat_rooms[chat_room_name].broadcast(clients, name)
 
     try:
         while True:
             
-            # recieves the message from the client
-            msg = recv_message(conn)
-            if not msg:
-                break
+            # returns back a msg to let the user know if they are still in a room
+            in_room = chat_rooms[chat_room_name].in_room(name)
+            send_message(conn, {"TYPE": "CHECK", "IN_ROOM": in_room})
 
-            if msg.get("TYPE") == "SEND":
+            if in_room:
+                # recieves the message from the client
+                msg = recv_message(conn)
+
+                if not msg:
+                    break
+
+                if msg.get("TYPE") == "SEND":
                 
-                room_instance = chat_rooms.get(msg.get("ROOM"))
+                    room_instance = chat_rooms.get(msg.get("ROOM"))
 
-                if room_instance:
-                    room_instance.send_message("RECIEVE", msg.get("MESSAGE"), clients, from_user=name)
+                    if room_instance:
+                        room_instance.send_message("RECIEVE", msg.get("MESSAGE"), clients, from_user=name)
+            else:
+                # user is not in room since they were removed, gets user assigned to a room
+
+                # send message with chat_room info
+                send_message(conn, {"TYPE": "REJOIN", "CHAT_ROOMS": chat_rooms, "NAME": name})
+                assign_room(conn, name)
 
     except Exception as e:
         print(f"Error: {e}")

@@ -8,6 +8,9 @@ class chat_room:
         self.users = []
         self.add_user(name)
 
+    def get_chat_room_name(self):
+        return self.room_name
+    
     def add_user(self, name):
         self.users.append(name)
     
@@ -16,19 +19,21 @@ class chat_room:
 
     def list_users(self):
         return self.users
+    
+    def get_owner(self):
+        return self.users[0]
 
     # broadcast msg to server, printing that a new user had joined the room, (displays for user that joined too)
     # passes to the send_message function below for slight optimization
-    def broadcast(self, sockets_dict, name):
-        self.send_message("BROADCAST", f"Welcome to the chat room {name}!", sockets_dict)
+    def broadcast(self, clients, name):
+        self.send_message("BROADCAST", f"Welcome to the chat room {name}!", clients)
 
     def in_room(self, user):
         return user in self.users
     
     # from_user is a default argument so broadcast msg essentially "bypasses" the check within the loop, printing to the user that joined also
-    def send_message(self, type, message, sockets_dict, from_user=""):
+    def send_message(self, type, message, clients, from_user=""):
         # loops thru every user in that room and sends the corresponding message to them
         for user in self.users:
             if user != from_user:
-                print(f"SENT TO USER {user}! MSG: {message}")
-                send_message(sockets_dict[user], {"TYPE": type, "FROM": from_user, "MESSAGE": message})
+                send_message(clients[user].get_socket(), {"TYPE": type, "FROM": from_user, "MESSAGE": message})
