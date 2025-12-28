@@ -181,7 +181,7 @@ def input_loop():
             outbox.put(('QUIT', None))
             break
 
-        if line is None:
+        if line is None or len(line) == 0:
             continue
 
         text = line.strip()
