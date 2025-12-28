@@ -39,7 +39,7 @@ def assign_room(conn, name):
 
     return room_name
 
-# Every client will thats connected to the relay server will have an instance of this (the instance is hosted here ofc)
+# Every client thats connected to the relay server will have an instance of this (the instance is hosted here ofc)
 def handle_client(conn, addr):
     # prints the ip address of the client that connects to the relay
     print(f"[+] Connected: {addr}")
