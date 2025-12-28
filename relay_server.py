@@ -4,7 +4,7 @@ import socket
 import threading
 from chat_room import chat_room
 from protocol import send_message, recv_message
-from client import client
+from ignore import client
 
 HOST = "0.0.0.0"   # Listen on all network interfaces
 PORT = 5000        # Port clients will connect to
