@@ -1,3 +1,5 @@
+# Relay server uses this class to send messages to everyone in chat room, 
+
 from protocol import send_message
 
 class chat_room:
@@ -38,6 +40,7 @@ class chat_room:
     # from_user is a default argument so broadcast msg essentially "bypasses" the check within the loop, printing to the user that joined also
     def send_message(self, type, message, clients, from_user=""):
         # loops thru every user in that room and sends the corresponding message to them
+        # .get_socket() is function in client.
         for user in self.users:
             if user != from_user:
                 send_message(clients[user].get_socket(), {"TYPE": type, "FROM": from_user, "MESSAGE": message})

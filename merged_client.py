@@ -17,7 +17,6 @@ state = {
 input_enabled = threading.Event()
 input_enabled.set()
 
-# create room if user intends to, join room if there is a room and user intends to join a room
 # creates a room, communicates the room name, room owner ("only user"), and type "CREATE_ROOM" all in a dict
 def create_room(socket, room_name, owner):
     send_message(socket, {"TYPE": "CREATE_ROOM", "ROOM_NAME": room_name, "OWNER": owner})

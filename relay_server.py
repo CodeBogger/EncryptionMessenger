@@ -33,9 +33,9 @@ def assign_room(conn, name):
     elif msg and msg.get("TYPE") == "JOIN_ROOM":
         
         # if user intends to join a room, it utilizes the add_user() function and adds the respective user
-        Room = chat_rooms.get(room_name)
-        if Room:
-            Room.add_user(name)
+        room = chat_rooms.get(room_name)
+        if room:
+            room.add_user(name)
 
     return room_name
 
@@ -59,31 +59,32 @@ def handle_client(conn, addr):
         conn.close()
         return
 
+    # WE CHANGED THIS, DO NOT USE LOCK
     # if 2 clients try connect at same time the lock makes sure each action happens 1 after the other
-    with lock:
+    # with lock:
         
-        # checks if the name is already taken, gives an "ERROR" type message
-        if name in clients:
-            send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Name already taken"})
-            conn.close()
-            return
-        
-        # otherwise adds the client to the clients dict
-        # clients[name] = conn
+    # checks if the name is already taken, gives an "ERROR" type message
+    if name in clients:
+        send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Name already taken"})
+        conn.close()
+        return
+    
+    # otherwise adds the client to the clients dict
+    # clients[name] = conn
 
-        # sends a confirmation message back to the client
+    # sends a confirmation message back to the client
 
-        # send message with chat_room info
-        send_message(conn, {"CHAT_ROOMS": chat_rooms, "TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!\n"})
+    # send message with chat_room info
+    send_message(conn, {"CHAT_ROOMS": chat_rooms, "TYPE": "REGISTERED", "MESSAGE": f"Welcome to the VPS server, {name}!\n"})
 
-        # assign room computation (save in a function)
-        chat_room_name = assign_room(conn, name)
+    # assign room computation (save in a function)
+    chat_room_name = assign_room(conn, name)
 
-        # maps client name -> client object
-        clients[name] = client(conn, name, chat_room_name)
+    # maps client name -> client object
+    clients[name] = client(conn, name, chat_room_name)
 
-        # broadcasts user to room regardless if they created it or joined
-        chat_rooms[chat_room_name].broadcast(clients, name)
+    # broadcasts user to room regardless if they created it or joined
+    chat_rooms[chat_room_name].broadcast(clients, name)
 
     try:
         while True:
@@ -104,7 +105,7 @@ def handle_client(conn, addr):
                     room_instance = chat_rooms.get(msg.get("ROOM"))
 
                     if room_instance:
-                        room_instance.send_message("RECIEVE", msg.get("MESSAGE"), clients, from_user=name)
+                        room_instance.send_message("RECEIVE", msg.get("MESSAGE"), clients, from_user=name)
             else:
                 # user is not in room since they were removed, gets user assigned to a room
 
