@@ -16,6 +16,8 @@ def create_room(room_name, owner):
     # create a new chat_room obj and assign respective room name to room object
     temp_room = chat_room(room_name, owner)
     chat_rooms[room_name] = temp_room
+    # Prints out the room name and its creator
+    print(f"[+] Room '{room_name}' created by {owner}")
 
 # Every client will thats connected to the relay server will have an instance of this (the instance is hosted here ofc)
 def handle_client(conn, addr):
