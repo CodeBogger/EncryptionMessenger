@@ -7,6 +7,7 @@ class chat_room:
         self.room_name = room_name
         self.users = []
         self.add_user(name)
+        # The first person in list will be the owner of the room
 
     def get_chat_room_name(self):
         return self.room_name
@@ -14,9 +15,11 @@ class chat_room:
     def add_user(self, name):
         self.users.append(name)
     
+    # removes a user
     def remove_user(self, user):
         self.users.remove(user)
 
+    # lists user
     def list_users(self):
         return self.users
     
@@ -28,6 +31,7 @@ class chat_room:
     def broadcast(self, clients, name):
         self.send_message("BROADCAST", f"Welcome to the chat room {name}!", clients)
 
+    # Checks if a username is in a room (string -> boolean)
     def in_room(self, user):
         return user in self.users
     
