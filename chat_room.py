@@ -9,22 +9,14 @@ class chat_room:
         self.room_name = room_name
         self.admins = [name]
         self.users = []
-        self.addUser(name)
-        self.hasPassword = False
-        self.password = ""
+        self.add_user(name)
         # The first person in list will be the owner of the room
 
     def get_chat_room_name(self):
         return self.room_name
     
-    def has_password(self):
-        return self.hasPassword
-    
-    def addUser(self, name, password = ""):
-        if not self.has_password():
-            self.users.append(name)
-        if self.has_password() and self.password == password:
-            self.users.append(name)
+    def add_user(self, name):
+        self.users.append(name)
     
     # removes a user
     def remove_user(self, user):
@@ -55,15 +47,14 @@ class chat_room:
             # admin commands
             if from_user in self.admins:
                 match command:
-                    # remove a user from chat
                     case "!remove":
                         user = msglist[1]
                         self.users.remove(user)
                         send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
-                    # lists all users
+
                     case "!listusers":
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
-                    # make a user admin
+
                     case "!makeadmin":
                         user = msglist[1]
                         if user in self.users: 
@@ -71,16 +62,6 @@ class chat_room:
                             send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Made {user} admin"})
                         else:
                             send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"{user} does not exist"})
-                    # add password
-                    case "!addpassword":
-                        self.hasPassword = True
-                        self.password = msglist[1]
-                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Made {msglist[1]} the password"})
-                    case "!removepassword":
-                        self.hasPassword = False
-                        self.password = ""
-                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Removed password"})
-
             # base commands
             match command:
                 # returns what type of role the user has (admin/ guest)
