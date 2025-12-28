@@ -46,7 +46,10 @@ class chat_room:
             match command:
                 case "!remove":
                     user = msglist[1]
-                    self.users.remove(user)
+
+                    # quick check to not pass a user that isn't in the room
+                    if user in self.users and user != from_user:
+                        self.users.remove(user)
 
                 case "!listusers":
                     send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
