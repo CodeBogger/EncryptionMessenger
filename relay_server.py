@@ -4,7 +4,7 @@ import socket
 import threading
 from chat_room import chat_room
 from protocol import send_message, recv_message
-from ignore import client
+from client import Client
 
 HOST = "0.0.0.0"   # Listen on all network interfaces
 PORT = 5000        # Port clients will connect to
@@ -81,7 +81,7 @@ def handle_client(conn, addr):
     chat_room_name = assign_room(conn, name)
 
     # maps client name -> client object
-    clients[name] = client(conn, name, chat_room_name)
+    clients[name] = Client(conn, name, chat_room_name)
 
     # broadcasts user to room regardless if they created it or joined
     chat_rooms[chat_room_name].broadcast(clients, name)

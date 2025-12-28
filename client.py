@@ -10,6 +10,24 @@ import queue
 inbox = queue.Queue() # messages from server
 outbox = queue.Queue() # lines from user input
 
+class Client:
+    def __init__(self, socket, user_name, assigned_room):
+        self.socket = socket
+        self.user_name = user_name
+        self.assigned_room = assigned_room
+
+    def get_name(self):
+        return self.user_name
+    
+    def get_socket(self):
+        return self.socket
+    
+    def get_assigned_room(self):
+        return self.assigned_room
+    
+    def change_room(self, name):
+        self.assigned_room = name
+
 # Info on the client
 state = {
     # Is it currently active (needed for loops)
@@ -78,11 +96,11 @@ def main():
                 if mType == "CHECK":
                     state['IN_ROOM'] = msg.get('IN_ROOM')
 
-                # 
+                # Recieve will have parameters (sender, message)
                 elif mType == "RECEIVE":
                     print(f"{msg.get('FROM')}: {msg.get('MESSAGE')}")
 
-
+                # Broadcast will just have parameter message (no sender)
                 elif mType == "BROADCAST":
                     print(f"[Broadcast]: {msg.get('MESSAGE')}")
                 
@@ -99,6 +117,7 @@ def main():
                     print("Server disconnected.")
                     state['RUNNING'] = False
 
+        # if the que is empty, just continue the while loop repeatedly
         except queue.Empty:
             pass
 

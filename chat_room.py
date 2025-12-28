@@ -7,6 +7,7 @@ class chat_room:
     # new instance of chat_room object, creates a users list and automatically adds the user that created the obj to list
     def __init__(self, room_name, name):
         self.room_name = room_name
+        self.admins = [name]
         self.users = []
         self.add_user(name)
         # The first person in list will be the owner of the room
@@ -39,8 +40,27 @@ class chat_room:
     
     # from_user is a default argument so broadcast msg essentially "bypasses" the check within the loop, printing to the user that joined also
     def send_message(self, type, message, clients, from_user=""):
-        # loops thru every user in that room and sends the corresponding message to them
-        # .get_socket() is function in client.
-        for user in self.users:
-            if user != from_user:
-                send_message(clients[user].get_socket(), {"TYPE": type, "FROM": from_user, "MESSAGE": message})
+        if from_user in self.admins and message[0] == "!":
+            msglist = message.split(" ")
+            command = msglist[0]
+            match command:
+                case "!remove":
+                    user = msglist[1]
+                    self.users.remove(user)
+
+                case "!listusers":
+                    send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
+
+                case "!makeadmin":
+                    user = msglist[1]
+                    if user in self.users: 
+                        self.admins.append(user)
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"Made {user} admin"})
+                    else:
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"{user} does not exist"}) 
+        else:
+            # loops thru every user in that room and sends the corresponding message to them
+            # .get_socket() is function in client.
+            for user in self.users:
+                if user != from_user:
+                    send_message(clients[user].get_socket(), {"TYPE": type, "FROM": from_user, "MESSAGE": message})
