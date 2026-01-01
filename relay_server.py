@@ -4,7 +4,7 @@ import socket
 import threading
 from chat_room import chat_room
 from protocol import send_message, recv_message
-from client import Client
+from client_info import Client
 
 HOST = "0.0.0.0"   # Listen on all network interfaces
 PORT = 5000        # Port clients will connect to
@@ -32,6 +32,12 @@ def assign_room(conn, name):
         
     elif msg and msg.get("TYPE") == "JOIN_ROOM":
         # if user intends to join a room, it utilizes the add_user() function and adds the respective user
+
+        # in the case that the room is deleted while user is trying to join a room
+        if room_name not in chat_rooms:
+            send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Room doesn't exist"})
+            return None
+        
         room = chat_rooms.get(room_name)
         if room:
             if room.has_password:
@@ -93,7 +99,7 @@ def handle_client(conn, addr):
         while True:
             
             # returns back a msg to let the user know if they are still in a room
-            in_room = chat_rooms[chat_room_name].in_room(name)
+            in_room = chat_room_name in chat_rooms and chat_rooms[chat_room_name].in_room(name)
             send_message(conn, {"TYPE": "CHECK", "IN_ROOM": in_room})
 
             if in_room:
@@ -131,13 +137,12 @@ def handle_client(conn, addr):
                 room = chat_rooms[chat_room_name]
                 if name in room.users:
                     room.remove_user(name)
-            # send a message to the rest of the users that the user has left
-                room.send_message("BROADCAST", f"{name} has left the room.", clients, from_user=name)
+                    room.send_message("BROADCAST", f"{name} has left the room.", clients, from_user=name)
                 
-            if len(chat_rooms[chat_room_name].users) == 0:
-                del chat_rooms[chat_room_name]
-                print(f"[+] Room '{chat_room_name}' deleted due to no users remaining.")
-
+                if len(chat_rooms[chat_room_name].users) == 0:
+                    del chat_rooms[chat_room_name]
+                    print(f"[+] Room '{chat_room_name}' deleted due to no users remaining.")
+            # send a message to the rest of the users that the user has left
         conn.close()
 
 

@@ -70,7 +70,7 @@ class chat_room:
                         # send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
 
                         # message to the rest of the users that the user has been removed
-                        self.send_message("BROADCAST", f"{user} has been removed from the room by an admin.", clients, from_user=from_user)
+                        self.send_message("BROADCAST", f"{user} has been removed from the room by an admin.", clients)
 
                     case "!listusers":
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
@@ -100,20 +100,26 @@ class chat_room:
                     else:
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": "You are a member"})
                 case "!leave":
+                        # check if len of users is 1, if so delete room from server
                         self.users.remove(from_user)
-                        # check if len of users is 0, if so delete room from server
-                        if len(self.users) == 1:
+
+                        if len(self.users) == 0:
                             # the only user will be an admin, so delete room
-                            self.admins.remove(from_user)
                             if chat_rooms:
-                                # delete room from server
+                                # delete room from server and unassign user from room
                                 del chat_rooms[self.room_name]
-                        elif from_user in self.admins:
-                            self.admins.remove(from_user)
-                        
-                        send_message(clients[from_user].get_socket(), {"TYPE": "REJOIN"})
+                        else:
+                            if from_user in self.admins:
+                                self.admins.remove(from_user)
+
+                                # the first user in the list becomes admin if admin leaves
+                                if len(self.admins) == 0:
+                                    self.admins.append(self.users[0])
+
                         # message to the rest of the users that the user has left
                         self.send_message("BROADCAST", f"{from_user} has left the room.", clients, from_user=from_user)
+                case "!roomname":
+                        send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": f"The room name is: {self.room_name}"})
                         
              
         else:
