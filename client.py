@@ -233,7 +233,7 @@ def choose_room(s, msg, chat_rooms):
     if len(chat_rooms) > 0:
 
         print_rooms(chat_rooms)
-        
+
         while choice not in ("y", "n"):
             choice = input("Do you want to join an existing chat room? (y/n): ").strip()
             
