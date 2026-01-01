@@ -6,6 +6,25 @@ import socket
 import threading
 from protocol import recv_message, send_message
 import queue
+# to flush extra white spaces when leaving room
+import sys
+import select
+
+def flush_stdin():
+    # Windows console-safe stdin flush
+    try:
+        import msvcrt
+    except ImportError:
+        return  # not Windows / not a console
+
+    while msvcrt.kbhit():
+        ch = msvcrt.getwch()
+        # also eat the second char of CRLF if present
+        if ch == '\r' and msvcrt.kbhit():
+            nxt = msvcrt.getwch()
+            if nxt != '\n':
+                # if it wasn't LF, you've consumed a real char; not easy to "put back"
+                pass
 
 inbox = queue.Queue() # messages from server
 outbox = queue.Queue() # lines from user input
@@ -84,12 +103,13 @@ def main():
 
                 # Broadcast will just have parameter message (no sender)
                 elif mType == "BROADCAST":
-                    print(f"[Broadcast]: {msg.get('MESSAGE')}")
+                    print(f"\n[Broadcast]: {msg.get('MESSAGE')}\n")
                 
                 elif mType == "REJOIN":
                     # user is NO LONGER in room, updating state
                     state['IN_ROOM'] = False
                     state['ROOM'] = None
+                    input_enabled.clear() # safety pause input thread
 
                     # rejoin message should carry updated chat_rooms
                     print("\n[Server]: You are no longer in a room. Rejoin required.")
@@ -98,6 +118,14 @@ def main():
                 elif mType == "DISCONNECT":
                     print("Server disconnected.")
                     state['RUNNING'] = False
+
+                elif mType == "ERROR":
+                    print(f"[Error]: {msg.get('MESSAGE')}")
+                elif mType == "ROOM_DISCONNECT":
+                    print(f"[Server]: {msg.get('MESSAGE')}")
+                    state['IN_ROOM'] = False
+                    state['ROOM'] = None
+                    input_enabled.clear() # safety pause input thread
 
         # if the que is empty, just continue the while loop repeatedly
         except queue.Empty:
@@ -113,7 +141,7 @@ def main():
                 break
 
             if message_type == 'CHAT':
-                if not state['IN_ROOM']:
+                if not state['IN_ROOM'] or not state['ROOM']:
                     print("[Client]: You are not currently in a room. Wait for REJOIN / CHECK.")
                 else:
                     send_message(s, {"TYPE": "SEND", "ROOM": state['ROOM'], "MESSAGE": contents})
@@ -195,15 +223,17 @@ def print_rooms(chat_rooms):
     print("\n")
      
 def choose_room(s, msg, chat_rooms):
+    input_enabled.clear() # pause input thread
+    flush_stdin()  # flush any extra stdin inputs
 
     chat_rooms = msg.get("CHAT_ROOMS") if msg else {}
     room_name = None
 
-    print_rooms(chat_rooms)
-
     choice = None
     if len(chat_rooms) > 0:
-        input_enabled.clear() # pause input thread
+
+        print_rooms(chat_rooms)
+        
         while choice not in ("y", "n"):
             choice = input("Do you want to join an existing chat room? (y/n): ").strip()
             

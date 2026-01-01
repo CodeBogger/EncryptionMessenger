@@ -15,6 +15,11 @@ lock = threading.Lock()
 
 def create_room(room_name, owner, password=None):
     # create a new chat_room obj and assign respective room name to room object
+
+    # check to see if the room already exists
+    if room_name in chat_rooms:
+        return
+    
     temp_room = chat_room(room_name, owner, password)
     chat_rooms[room_name] = temp_room
     # Prints out the room name and its creator
@@ -32,10 +37,9 @@ def assign_room(conn, name):
         
     elif msg and msg.get("TYPE") == "JOIN_ROOM":
         # if user intends to join a room, it utilizes the add_user() function and adds the respective user
-
-        # in the case that the room is deleted while user is trying to join a room
-        if room_name not in chat_rooms:
-            send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Room doesn't exist"})
+        
+        # handles if the user is banned from the room or if the room does not exist
+        if room_name not in chat_rooms or name in chat_rooms[room_name].ban_list:
             return None
         
         room = chat_rooms.get(room_name)
@@ -45,7 +49,7 @@ def assign_room(conn, name):
             else:
                 room.add_user(name)
         else:
-            send_message(conn, {"TYPE": "ERROR", "MESSAGE": "Room doesn't exist"})
+            return None
 
     return room_name
 
@@ -106,11 +110,15 @@ def handle_client(conn, addr):
                 # recieves the message from the client
                 msg = recv_message(conn)
 
+                # TEMP FIX TO PREVENT USER FROM SENDING MSG AFTER BEING REMOVED
+                if not chat_rooms[chat_room_name].in_room(name):
+                    continue
+
                 if not msg:
                     break
 
                 if msg.get("TYPE") == "SEND":
-                
+                    
                     room_instance = chat_rooms.get(msg.get("ROOM"))
 
                     if room_instance:
@@ -121,7 +129,12 @@ def handle_client(conn, addr):
                 send_message(conn, {"TYPE": "REJOIN", "CHAT_ROOMS": chat_rooms, "NAME": name})
                 # get the new room assignment
                 chat_room_name = assign_room(conn, name)
-                chat_rooms[chat_room_name].broadcast(clients, name)
+
+                if chat_room_name:
+                    # update the client's assigned room
+                    chat_rooms[chat_room_name].broadcast(clients, name)
+                else:
+                    send_message(conn, {"TYPE": "ERROR", "MESSAGE": "The room you tried to join does not exist or you are banned."})
 
     except Exception as e:
         print(f"Error: {e}")
