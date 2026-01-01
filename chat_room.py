@@ -5,18 +5,32 @@ from protocol import send_message
 class chat_room:
 
     # new instance of chat_room object, creates a users list and automatically adds the user that created the obj to list
-    def __init__(self, room_name, name):
+    def __init__(self, room_name, name, password=None):
         self.room_name = room_name
         self.admins = [name]
         self.users = []
         self.add_user(name)
+
+        if password:
+            self.has_password = True
+            self.password = password
+        else:
+            self.has_password = False
+
         # The first person in list will be the owner of the room
 
     def get_chat_room_name(self):
         return self.room_name
     
-    def add_user(self, name):
-        self.users.append(name)
+    def add_user(self, name, socket=None, password=""):
+
+        if self.has_password:
+            if password == self.password:
+                self.users.append(name)
+            else:
+                send_message(socket, {"TYPE": "BROADCAST", "MESSAGE": "The password entered was incorrect!"})
+        else:
+            self.users.append(name)
     
     # removes a user
     def remove_user(self, user):
@@ -48,6 +62,9 @@ class chat_room:
             if from_user in self.admins:
                 match command:
                     case "!remove":
+
+                        if len(msglist) == 1:
+                            return
                         user = msglist[1]
                         self.users.remove(user)
                         send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
@@ -56,6 +73,9 @@ class chat_room:
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
 
                     case "!makeadmin":
+
+                        if len(msglist) == 1:
+                            return
                         user = msglist[1]
                         if user in self.users: 
                             self.admins.append(user)
@@ -79,7 +99,7 @@ class chat_room:
                             # if no admins
                             if len(self.admins) == 0:
                                 # make first user in users list admin
-                                self.admins.append(self.users.get(0))
+                                self.admins.append(self.users[0])
                         
                         send_message(clients[from_user].get_socket(), {"TYPE": "REJOIN"})
 

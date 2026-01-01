@@ -5,6 +5,7 @@
 import socket
 import threading
 from protocol import recv_message, send_message
+import relay_server
 import queue
 
 inbox = queue.Queue() # messages from server
@@ -147,12 +148,24 @@ def main():
     except:
         pass
 # creates a room, communicates the room name, room owner ("only user"), and type "CREATE_ROOM" all in a dict
-def create_room(socket, room_name, owner):
-    send_message(socket, {"TYPE": "CREATE_ROOM", "ROOM_NAME": room_name, "OWNER": owner})
+def create_room(socket, room_name, owner, password = None):
+    send_message(socket, {"TYPE": "CREATE_ROOM", "ROOM_NAME": room_name, "OWNER": owner, "PASSWORD": password})
 
 # sends msg to socket, relay_server captures that msg and executes command to join a current room
-def join_room(socket, room_name, password = ""):
+def join_room(socket, room_name, password = None):
     send_message(socket, {"TYPE": "JOIN_ROOM", "ROOM_NAME": room_name, "PASSWORD": password})
+
+def create_password():
+    user_choice = None
+
+    while user_choice not in ("y", "n"):
+        user_choice = input("Would you like to create a password to the server? (y/n): ")   
+
+    password = None
+    if user_choice == "y":
+        password = input("Please create a password for the room: ")
+    
+    return password
 
 def receiver_loop(s: socket.socket):
     # only placed allowed to call recv_message()
@@ -209,21 +222,40 @@ def choose_room(s, msg):
     print_rooms(chat_rooms)
 
     choice = None
-
     if len(chat_rooms) > 0:
         while choice not in ("y", "n"):
             choice = input("Do you want to join an existing chat room? (y/n): ").strip()
-    
+
             if choice == "y":
                 while room_name not in chat_rooms.keys():
                     room_name = input("Enter the name of the chat room to join: ")
-                join_room(s, room_name)
+                
+                if relay_server.chat_rooms[room_name] and relay_server.chat_rooms[room_name].has_password:
+                    
+                    password = ""
+                    while len(password) == 0:
+                        password = "Please enter the password for the room: "
+                    join_room(s, room_name, password)
+                else:
+                    join_room(s, room_name)
+            
             else:
                 room_name = input("Enter the name of the new chat room: ")
-                create_room(s, room_name, state['USER'])
+                password = create_password()
+
+                create_room(s, room_name, state['USER'], password)
+               
     else:
         print("There are currently no chat rooms to join. Please create one. ")
         room_name = input("Enter the name of the new chat room: ")
+
+        password = create_password()
+
+        if password:
+            create_room(s, room_name, state['USER'], password)
+        else:
+            create_room(s, room_name, state['USER'])
+
         create_room(s, room_name, state['USER'])
 
     # update client's room state
