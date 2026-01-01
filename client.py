@@ -27,7 +27,7 @@ class Client:
     
     def change_room(self, name):
         self.assigned_room = name
-        
+
 # Info on the client
 state = {
     # Is it currently active (needed for loops)
@@ -88,7 +88,7 @@ def main():
                 # this allows for this thread to not get stuck here and do other stuff
                 # it is extremely lightweight and uses hardly any cpu 
                 msg = inbox.get_nowait()
-
+                
                 # mType is the action the message wants complete
                 mType = msg.get('TYPE')
 
@@ -112,7 +112,7 @@ def main():
                     # rejoin message should carry updated chat_rooms
                     print("\n[Server]: You are no longer in a room. Rejoin required.")
                     choose_room(s, msg, msg.get("CHAT_ROOMS") if msg else {})
-                
+                    
                 elif mType == "DISCONNECT":
                     print("Server disconnected.")
                     state['RUNNING'] = False
@@ -213,18 +213,18 @@ def print_rooms(chat_rooms):
     print("\n")
      
 def choose_room(s, msg, chat_rooms):
-    input_enabled.clear()
 
     chat_rooms = msg.get("CHAT_ROOMS") if msg else {}
     room_name = None
-    
+
     print_rooms(chat_rooms)
 
     choice = None
     if len(chat_rooms) > 0:
+        input_enabled.clear() # pause input thread
         while choice not in ("y", "n"):
             choice = input("Do you want to join an existing chat room? (y/n): ").strip()
-
+            
             if choice == "y":
                 while room_name not in chat_rooms.keys():
                     room_name = input("Enter the name of the chat room to join: ")

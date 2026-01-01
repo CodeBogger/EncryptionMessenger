@@ -52,7 +52,7 @@ class chat_room:
         return user in self.users
     
     # from_user is a default argument so broadcast msg essentially "bypasses" the check within the loop, printing to the user that joined also
-    def send_message(self, type, message, clients, from_user=""):
+    def send_message(self, type, message, clients, from_user="", chat_rooms=None):
         # commands
         if message[0] == "!":
             msglist = message.split(" ")
@@ -66,7 +66,8 @@ class chat_room:
                             return
                         user = msglist[1]
                         self.users.remove(user)
-                        send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
+                        # debug - commented out for now
+                        # send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
 
                     case "!listusers":
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
@@ -92,13 +93,15 @@ class chat_room:
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": "You are a member"})
                 case "!leave":
                         self.users.remove(from_user)
-                        # If user is an admin remove from admin list
-                        if from_user in self.admins:
+                        # check if len of users is 0, if so delete room from server
+                        if len(self.users) == 1:
+                            # the only user will be an admin, so delete room
                             self.admins.remove(from_user)
-                            # if no admins
-                            if len(self.admins) == 0:
-                                # make first user in users list admin
-                                self.admins.append(self.users[0])
+                            if chat_rooms:
+                                # delete room from server
+                                del chat_rooms[self.room_name]
+                        elif from_user in self.admins:
+                            self.admins.remove(from_user)
                         
                         send_message(clients[from_user].get_socket(), {"TYPE": "REJOIN"})
 

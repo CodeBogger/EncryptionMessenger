@@ -108,22 +108,33 @@ def handle_client(conn, addr):
                     room_instance = chat_rooms.get(msg.get("ROOM"))
 
                     if room_instance:
-                        room_instance.send_message("RECEIVE", msg.get("MESSAGE"), clients, from_user=name)
+                        room_instance.send_message("RECEIVE", msg.get("MESSAGE"), clients, from_user=name, chat_rooms=chat_rooms)
             else:
                 # user is not in room since they were removed, gets user assigned to a room
-
                 # send message with chat_room info
                 send_message(conn, {"TYPE": "REJOIN", "CHAT_ROOMS": chat_rooms, "NAME": name})
-                assign_room(conn, name)
+                # get the new room assignment
+                chat_room_name = assign_room(conn, name)
+                chat_rooms[chat_room_name].broadcast(clients, name)
 
     except Exception as e:
         print(f"Error: {e}")
     
     finally:
         print(f"[-] User disconnected: {name} from {addr}")
+        # cleanup on disconnect
         with lock:
             if name in clients:
                 del clients[name]
+            # if the user was in a room, remove them from it
+            if chat_room_name and chat_room_name in chat_rooms:
+                room = chat_rooms[chat_room_name]
+                if name in room.users:
+                    room.remove_user(name)
+            if len(chat_rooms[chat_room_name].users) == 0:
+                del chat_rooms[chat_room_name]
+                print(f"[+] Room '{chat_room_name}' deleted due to no users remaining.")
+
         conn.close()
 
 
