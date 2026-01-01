@@ -131,6 +131,9 @@ def handle_client(conn, addr):
                 room = chat_rooms[chat_room_name]
                 if name in room.users:
                     room.remove_user(name)
+            # send a message to the rest of the users that the user has left
+                room.send_message("BROADCAST", f"{name} has left the room.", clients, from_user=name)
+                
             if len(chat_rooms[chat_room_name].users) == 0:
                 del chat_rooms[chat_room_name]
                 print(f"[+] Room '{chat_room_name}' deleted due to no users remaining.")

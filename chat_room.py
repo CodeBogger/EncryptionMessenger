@@ -69,6 +69,9 @@ class chat_room:
                         # debug - commented out for now
                         # send_message(clients[user].get_socket(), {"TYPE": "REJOIN"})
 
+                        # message to the rest of the users that the user has been removed
+                        self.send_message("BROADCAST", f"{user} has been removed from the room by an admin.", clients, from_user=from_user)
+
                     case "!listusers":
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": self.users})
 
@@ -85,9 +88,14 @@ class chat_room:
             # base commands
             match command:
                 # returns what type of role the user has (admin/ guest)
+                
                 case "!role":
-                    user = msglist[1]
-                    if user in self.admins:
+                    
+                    # invalid input, will return nothing
+                    if len(msglist) == 2:
+                        return
+                    
+                    if from_user in self.admins:
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": "You are an admin"})
                     else:
                         send_message(clients[from_user].get_socket(), {"TYPE": "BROADCAST", "MESSAGE": "You are a member"})
@@ -104,7 +112,8 @@ class chat_room:
                             self.admins.remove(from_user)
                         
                         send_message(clients[from_user].get_socket(), {"TYPE": "REJOIN"})
-
+                        # message to the rest of the users that the user has left
+                        self.send_message("BROADCAST", f"{from_user} has left the room.", clients, from_user=from_user)
                         
              
         else:
