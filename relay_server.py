@@ -13,7 +13,7 @@ clients = dict()     # dict, maps user name -> client obj
 chat_rooms = dict()  # Dictionary to hold chat room instances, maps room name -> Room instance
 lock = threading.Lock()
 
-def create_room(room_name, owner, password=""):
+def create_room(room_name, owner, password=None):
     # create a new chat_room obj and assign respective room name to room object
     temp_room = chat_room(room_name, owner, password)
     chat_rooms[room_name] = temp_room
@@ -23,7 +23,7 @@ def create_room(room_name, owner, password=""):
 # the computation for assigning a user to a room, prompts user to join or create one
 def assign_room(conn, name):
     msg = recv_message(conn)
-    room_name = msg.get("ROOM_NAME") if msg else None
+    room_name = msg["ROOM_NAME"] if msg else None
 
     # handles whether the client wants to join or create a room
     if msg and msg.get("TYPE") == "CREATE_ROOM":
@@ -83,7 +83,6 @@ def handle_client(conn, addr):
 
     # assign room computation (save in a function)
     chat_room_name = assign_room(conn, name)
-
     # maps client name -> client object
     clients[name] = Client(conn, name, chat_room_name)
 

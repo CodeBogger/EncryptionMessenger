@@ -5,7 +5,6 @@
 import socket
 import threading
 from protocol import recv_message, send_message
-import relay_server
 import queue
 
 inbox = queue.Queue() # messages from server
@@ -28,7 +27,7 @@ class Client:
     
     def change_room(self, name):
         self.assigned_room = name
-
+        
 # Info on the client
 state = {
     # Is it currently active (needed for loops)
@@ -66,7 +65,7 @@ def main():
         return
     
     print(f"\n[Server]: {msg.get('MESSAGE') if msg else ''}")
-    choose_room(s, msg)
+    choose_room(s, msg, msg.get("CHAT_ROOMS") if msg else {})
 
     # start threads
     # For recieving messages
@@ -112,7 +111,7 @@ def main():
 
                     # rejoin message should carry updated chat_rooms
                     print("\n[Server]: You are no longer in a room. Rejoin required.")
-                    choose_room(s, msg)
+                    choose_room(s, msg, msg.get("CHAT_ROOMS") if msg else {})
                 
                 elif mType == "DISCONNECT":
                     print("Server disconnected.")
@@ -213,7 +212,7 @@ def print_rooms(chat_rooms):
             print(f"  Users: {room_obj.list_users()}")
     print("\n")
      
-def choose_room(s, msg):
+def choose_room(s, msg, chat_rooms):
     input_enabled.clear()
 
     chat_rooms = msg.get("CHAT_ROOMS") if msg else {}
@@ -230,11 +229,11 @@ def choose_room(s, msg):
                 while room_name not in chat_rooms.keys():
                     room_name = input("Enter the name of the chat room to join: ")
                 
-                if relay_server.chat_rooms[room_name] and relay_server.chat_rooms[room_name].has_password:
+                if chat_rooms[room_name] and chat_rooms[room_name].has_password:
                     
                     password = ""
                     while len(password) == 0:
-                        password = "Please enter the password for the room: "
+                        password = input("Please enter the password for the room: ")
                     join_room(s, room_name, password)
                 else:
                     join_room(s, room_name)

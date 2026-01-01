@@ -8,14 +8,12 @@ class chat_room:
     def __init__(self, room_name, name, password=None):
         self.room_name = room_name
         self.admins = [name]
-        self.users = []
-        self.add_user(name)
+        self.users = [name]
+        self.has_password = False
 
         if password:
             self.has_password = True
             self.password = password
-        else:
-            self.has_password = False
 
         # The first person in list will be the owner of the room
 
@@ -28,6 +26,7 @@ class chat_room:
             if password == self.password:
                 self.users.append(name)
             else:
+                # only runs when a user is trying to join a password protected room with the wrong password, socket is provided when joining a password protected room
                 send_message(socket, {"TYPE": "BROADCAST", "MESSAGE": "The password entered was incorrect!"})
         else:
             self.users.append(name)
