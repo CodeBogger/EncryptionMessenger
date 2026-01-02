@@ -92,7 +92,7 @@ class chat_room:
                     case "!remove":
 
                         # send message to client before removing from room to process the message
-                        send_message(clients[user].get_socket(), {"TYPE": "ROOM_DISCONNECT", "MESSAGE": "You have been removed from the room by an admin."})
+                        send_message(clients[user].get_socket(), {"TYPE": "REJOIN", "MESSAGE": "You have been removed from the room by an admin."})
                         self.users.remove(user)
 
                         # message to the rest of the users that the user has been removed
@@ -112,7 +112,7 @@ class chat_room:
                     case "!ban":
                     
                         # send message to client before removing from room to process the message
-                        send_message(clients[user].get_socket(), {"TYPE": "ROOM_DISCONNECT", "MESSAGE": "You have been banned from the room by an admin."})
+                        send_message(clients[user].get_socket(), {"TYPE": "REJOIN", "MESSAGE": "You have been banned from the room by an admin."})
                         self.ban_list.append(user)
                         self.users.remove(user)
             
@@ -135,7 +135,7 @@ class chat_room:
 
                 case "!leave":
                         
-                        send_message(clients[from_user].get_socket(), {"TYPE": "ROOM_DISCONNECT", "MESSAGE": "You have left the room."})
+                        send_message(clients[from_user].get_socket(), {"TYPE": "REJOIN", "MESSAGE": "You have left the room."})
                         self.users.remove(from_user)
 
                         if len(self.users) == 0:
