@@ -10,22 +10,6 @@ import queue
 import sys
 import select
 
-def flush_stdin():
-    # Windows console-safe stdin flush
-    try:
-        import msvcrt
-    except ImportError:
-        return  # not Windows / not a console
-
-    while msvcrt.kbhit():
-        ch = msvcrt.getwch()
-        # also eat the second char of CRLF if present
-        if ch == '\r' and msvcrt.kbhit():
-            nxt = msvcrt.getwch()
-            if nxt != '\n':
-                # if it wasn't LF, you've consumed a real char; not easy to "put back"
-                pass
-
 inbox = queue.Queue() # messages from server
 outbox = queue.Queue() # lines from user input
 
@@ -224,7 +208,6 @@ def print_rooms(chat_rooms):
      
 def choose_room(s, msg, chat_rooms):
     input_enabled.clear() # pause input thread
-    flush_stdin()  # flush any extra stdin inputs
 
     chat_rooms = msg.get("CHAT_ROOMS") if msg else {}
     room_name = None
