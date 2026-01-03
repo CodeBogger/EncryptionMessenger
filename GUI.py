@@ -1,6 +1,5 @@
 import tkinter as tk
 import threading
-from relay_server import chat_rooms
 import client
 
 class App(tk.Tk):
@@ -66,11 +65,7 @@ class JoinRoomPage(tk.Frame):
             if isinstance(widget, tk.Button) and widget.cget("text") not in ["Back to Options"]:
                 widget.destroy()
 
-        row = 1
-        for room_name in chat_rooms:
-            tk.Button(self, text=room_name,
-                      command=lambda rn=room_name: print(f"Room: {rn}")).grid(row=row, column=0, pady=5)
-            row += 1
+        # logic has not been implemented yet to fetch rooms from server
         
 
 if __name__ == "__main__":

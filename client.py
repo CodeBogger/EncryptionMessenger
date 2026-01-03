@@ -4,256 +4,253 @@
 
 import socket
 import threading
-from protocol import recv_message, send_message
 import queue
-# to flush extra white spaces when leaving room
-import sys
-import select
+from protocol import recv_message, send_message
 
-inbox = queue.Queue() # messages from server
-outbox = queue.Queue() # lines from user input
-
-# Info on the client
 state = {
-    # Is it currently active (needed for loops)
-    'RUNNING': True,
-    # If its currently in a room
-    'IN_ROOM': False,
-    # Name of room its in
-    'ROOM': None,
-    # username
-    'USER': None,
+    "RUNNING": True,
+    "IN_ROOM": False,
+    "ROOM": None,
+    "USER": None,
 }
 
-# used to pause / resume the input thread when we need to ask room questions in main thread
-input_enabled = threading.Event()
-# .set() means good to go, whilst .clear() means continue waiting
-input_enabled.set()
+inbox = queue.Queue()   # messages from server (dicts)
+outbox = queue.Queue()  # messages to be sent to relay server (dicts)
+
+prompts_box = queue.Queue() # prompts that the user answers to (dicts -> PROMPT, RESPONSE BOUNDARIES ie ("y" or "n"))
+user_input_box = queue.Queue() # input messages from client (strings)
+
+# user choice to either create a new room or join one currently if there are any available
+def room_assignment_action(chat_rooms):
+    # display all chat rooms to user via console
+
+    print()
+    if chat_rooms:
+        
+        print("Current Chat Rooms: ")
+        if chat_rooms is not None and chat_rooms:
+            for chat_room_name, chat_room_obj in chat_rooms.items():
+                print(f"{chat_room_name} - Owner: {chat_room_obj.get_owner()} - Users: {chat_room_obj.list_users()}")
+        print()
+
+        # .get() function waits for the user to input a choice
+        prompts_box.put({"PROMPT": "Would you like to join a room on the server? (y/n): ", "BOUNDARIES": ("y", "n")})
+        print()
+        
+        return user_input_box.get() == "n"
+    else:
+
+        print("There are currently no chat rooms on the server. ", end="")
+
+    # returning none denotes that the user intends / needs to make a new room
+    return True
+
+def room_assignment(chat_rooms):
+
+    # a password that a user decides to create when making a new room / when joining a password-protected room
+    password = None
+
+    # the name of the chat room to create / join
+    room_name = None
+
+    # user intends / needs to make a new room
+    if room_assignment_action(chat_rooms):
+        
+        # gathers the user's new room name
+        prompts_box.put({"PROMPT": "Please enter the room of the new chat room: "})
+        room_name = user_input_box.get()
+        print()
+
+        # asks the user if they'd like to create a password
+        prompts_box.put({"PROMPT": "Would you like to create a password for your room? (y/n): ", "BOUNDARIES": ("y", "n")})
+
+        if user_input_box.get() == "y":
+
+            # the user intends to create a password, store a non-null, non-empty value inside of password
+            prompts_box.put({"PROMPT": "Please create a password for the room: "})
+            password = user_input_box.get()
+            print()
+        
+        # finally add to outbox - will be sent to relay server
+        outbox.put({"TYPE": "CREATE_ROOM", "ROOM_NAME": room_name, "PASSWORD": password})
+
+    else:
+
+        # user will now choose what room they want to join
+        prompts_box.put({"PROMPT": "Please enter the room you'd like to join: ", "BOUNDARIES": tuple(chat_rooms.keys())})
+        room_name = user_input_box.get()
+        print()
+
+        # checks to see whether there is a password for the room
+        if chat_rooms[room_name].has_password:
+            # password logic
+            prompts_box.put({"PROMPT": "Please enter the password for the room: "})
+            password = user_input_box.get()
+            print()
+
+        # finally add to outbox - will be sent to relay server
+        outbox.put({"TYPE": "JOIN_ROOM", "ROOM_NAME": room_name, "PASSWORD": password})
+
+# ALL THREAD FUNCTIONS 
+def recieving_thread(s):
+    while state["RUNNING"]:
+
+        msg = recv_message(s)
+        # in the case of a null msg sent to socket
+        
+        if msg is None:
+            print("Disconnected from server.")
+            state["RUNNING"] = False
+            s.close()
+            break
+        
+        inbox.put(msg)
+
+def outbox_thread(s):
+    while state["RUNNING"]:
+
+        # waits for contents patiently
+        contents = outbox.get()
+
+        # invalid contents if condition passes; either null or contains nothing
+        if contents is None or not contents:
+            continue
+
+        # else, we send the contents to the relay server
+        send_message(s, contents)
+
+# helper function to not repeat duplicate computations in user_input_thread()
+def input_helper(prompt_dict={}):
+
+    user_inp = None
+    prompt = prompt_dict.get("PROMPT") if prompt_dict else "> "
+
+    # extracts the boundaries of the prompt, (the response must be in the tuple passed as "BOUNDARIES" hence boundaries)
+    boundaries = tuple()
+
+    if prompt_dict.get("BOUNDARIES") is not None:
+        boundaries = prompt_dict.get("BOUNDARIES")
+
+    # run code in while loop if user_inp is null, empty, or is NOT in a tuple of accepted inputs IF boundaries WITH contents is passed
+    while user_inp is None or not user_inp or boundaries and user_inp not in boundaries:
+        user_inp = input(prompt).strip()
+    
+    return user_inp
+
+def user_input_thread():
+    while state["RUNNING"]:
+        
+        # if the queue has contents inside - the user is being prompted
+        if not prompts_box.empty():
+            # get user inp
+            user_response = input_helper(prompts_box.get())
+            user_input_box.put(user_response)
+
+        # otherwise, with these conditions checked, we can safely assume that the user is attempting to send a message to the relay server
+        elif state["IN_ROOM"]:
+            user_msg = input_helper()
+            user_input_box.put(user_msg)
 
 def main():
-    # creates a socket and connects to the server
+    # Create a TCP/IP socket, connect to the VPS IP address & port
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("72.62.81.113", 5000))
 
-    user = input("Enter your username: ")
-    send_message(s, {"TYPE": "SEND", "NAME": user})
+    # create threads
+    rec_thread = threading.Thread(target = recieving_thread, args=(s,))
+    input_thread = threading.Thread(target = user_input_thread, args=())
+    outbx_thread = threading.Thread(target = outbox_thread, args=(s,))
 
-    state['USER'] = user # assign username to user
+    input_thread.start()
+    rec_thread.start()
+    outbx_thread.start()
 
-    # receive the registered message before starting receiver thread
-    # This message should always be sent from relay server upon connection
-    msg = recv_message(s)
-    if msg and msg.get('TYPE') != 'REGISTERED':
-        print("Did not receive REGISTERED from server. Exiting.")
-        print("Relay server might not be hosted")
-        s.close()
-        return
+    # set the username of the client
+    prompts_box.put({"PROMPT": "Please enter your username: "})
+    state["USER"] = user_input_box.get()
+
+    # send initial registration message to server
+    outbox.put({"NAME": state["USER"]})
     
-    print(f"\n[Server]: {msg.get('MESSAGE') if msg else ''}")
-    choose_room(s, msg, msg.get("CHAT_ROOMS") if msg else {})
-
-    # start threads
-    # For recieving messages
-    t_recv = threading.Thread(target=receiver_loop, args=(s,), daemon=True)
-    t_recv.start()
-
-    # For recieving user inputs (from keyboard) and sending them to relay server
-    t_in = threading.Thread(target=input_loop, daemon=True)
-    t_in.start()
-
-    # main loop, updates state and sends msgs
-    while state['RUNNING']:
-        # process inbound messages from relay_server and elsewhere
-        try:
-            # This inner loop isnt needed but its more effective
-            # It pulls stuff from the inbox, like new messages 
-            while True:
-                # .get_nowait() doesnt wait on an empty que
-                # it will try get first value, if nothing exists it throws error, (which is handled)
-                # this allows for this thread to not get stuck here and do other stuff
-                # it is extremely lightweight and uses hardly any cpu 
-                msg = inbox.get_nowait()
-                
-                # mType is the action the message wants complete
-                mType = msg.get('TYPE')
-
-                # This is used to update if the client is in a chat room
-                if mType == "CHECK":
-                    state['IN_ROOM'] = msg.get('IN_ROOM')
-
-                # Recieve will have parameters (sender, message)
-                elif mType == "RECEIVE":
-                    print(f"{msg.get('FROM')}: {msg.get('MESSAGE')}")
-
-                # Broadcast will just have parameter message (no sender)
-                elif mType == "BROADCAST":
-                    print(f"\n[Broadcast]: {msg.get('MESSAGE')}\n")
-                
-                elif mType == "REJOIN":
-                    # user is NO LONGER in room, updating state
-                    state['IN_ROOM'] = False
-                    state['ROOM'] = None
-                    input_enabled.clear() # safety pause input thread
-
-                    # rejoin message should carry updated chat_rooms
-                    print("\n[Server]: You are no longer in a room. Rejoin required.")
-                    choose_room(s, msg, msg.get("CHAT_ROOMS") if msg else {})
-                    
-                elif mType == "DISCONNECT":
-                    print("Server disconnected.")
-                    state['RUNNING'] = False
-
-                elif mType == "ERROR":
-                    print(f"[Error]: {msg.get('MESSAGE')}")
-
-        # if the que is empty, just continue the while loop repeatedly
-        except queue.Empty:
-            pass
-
-        # now for outbound messages, processing user input and sending back to relay_server
-        try:
-            message_type, contents = outbox.get_nowait()
-
-            if message_type == 'QUIT':
-                print("Closing")
-                state['RUNNING'] = False
-                break
-
-            if message_type == 'CHAT':
-                if not state['IN_ROOM'] or not state['ROOM']:
-                    print("[Client]: You are not currently in a room. Wait for REJOIN / CHECK.")
-                else:
-                    send_message(s, {"TYPE": "SEND", "ROOM": state['ROOM'], "MESSAGE": contents})
-
-        except queue.Empty:
-            pass
+    # waits to recieve the message from the relay server
+    server_info = inbox.get()
     
-    # if they aren't in a room, the message from relay_server.py is captured in the reciever loop thread above. it will be handled there
-    state['RUNNING'] = False
-    input_enabled.set()
-    try:
-        s.close()
-    except:
-        pass
-# creates a room, communicates the room name, room owner ("only user"), and type "CREATE_ROOM" all in a dict
-def create_room(socket, room_name, owner, password = None):
-    send_message(socket, {"TYPE": "CREATE_ROOM", "ROOM_NAME": room_name, "OWNER": owner, "PASSWORD": password})
-
-# sends msg to socket, relay_server captures that msg and executes command to join a current room
-def join_room(socket, room_name, password = None):
-    send_message(socket, {"TYPE": "JOIN_ROOM", "ROOM_NAME": room_name, "PASSWORD": password})
-
-def create_password():
-    user_choice = None
-
-    while user_choice not in ("y", "n"):
-        user_choice = input("Would you like to create a password to the server? (y/n): ")   
-
-    password = None
-    if user_choice == "y":
-        password = input("Please create a password for the room: ")
+    # prints 'Welcome to the VPS Server, {name}!'
+    print(f"[SERVER]: {server_info.get("MESSAGE")}")
     
-    return password
+    # initial room assignment
+    room_assignment(server_info.get("CHAT_ROOMS"))
 
-def receiver_loop(s: socket.socket):
-    # only placed allowed to call recv_message()
-    # pushes every message into inbox, in the queue
+    while state["RUNNING"]:
 
-    while state['RUNNING']:
-        msg = recv_message(s)
-        if msg is None:
-            inbox.put({"TYPE": "DISCONNECT"})
-            state['RUNNING'] = False
-            return
-        inbox.put(msg)
-
-def input_loop():
-    # reads user input and pushes lines into outbox
-    # does not touch socket
-
-    while state['RUNNING']:
-        input_enabled.wait() # paused during room selection / rejoin prompts
-        if not state['RUNNING']:
-            break
-
-        try:
-            line = input()
-        except Exception:
-            outbox.put(('QUIT', None))
-            break
-
-        if line is None or len(line) == 0:
-            continue
-
-        text = line.strip()
-        if text.lower() == "exit":
-            outbox.put(("QUIT", None))
-            continue
+        # inbound logic - checks to see if inbox queue is empty
+        while not inbox.empty():
+            msg = inbox.get()
         
-        # pushes input into outbox queue, where all user inputs are stored
-        outbox.put(("CHAT", text))
+            # gets the type of the message
+            mType = msg.get("TYPE")
 
-def print_rooms(chat_rooms):
-    print("\nAvailable chat rooms:")
-
-    for room_name, room_obj in chat_rooms.items():
-            print(f"- {room_name} (Owner: {room_obj.get_owner()})")
-            print(f"  Users: {room_obj.list_users()}")
-    print("\n")
-     
-def choose_room(s, msg, chat_rooms):
-    input_enabled.clear() # pause input thread
-
-    chat_rooms = msg.get("CHAT_ROOMS") if msg else {}
-    room_name = None
-
-    choice = None
-    if len(chat_rooms) > 0:
-
-        print_rooms(chat_rooms)
-
-        while choice not in ("y", "n"):
-            choice = input("Do you want to join an existing chat room? (y/n): ").strip()
+            match mType:
             
-            if choice == "y":
-                while room_name not in chat_rooms.keys():
-                    room_name = input("Enter the name of the chat room to join: ")
-                
-                if chat_rooms[room_name] and chat_rooms[room_name].has_password:
+                # inbound messages coming from other users in the assigned room
+                case "RECEIVE":
+
+                    from_user = msg.get("FROM")
+                    user_message = msg.get("MESSAGE")
+
+                    print(f"{from_user}: {user_message}")
+
+                # broadcast messages that share important, or relevant information from the chat room
+                case "BROADCAST":
                     
-                    password = ""
-                    while len(password) == 0:
-                        password = input("Please enter the password for the room: ")
-                    join_room(s, room_name, password)
-                else:
-                    join_room(s, room_name)
+                    broadcast_message = msg.get("MESSAGE")
+
+                    print(f"[BROADCAST]: {broadcast_message}\n")
+                    
+                # message type that confirms connection to a room
+                case "CONNECTED":
+                    
+                    print("CONNECTED!")
+                    # confirms and flags the user in a room and assigns the corresponding room name
+                    room_name = msg.get("ROOM_NAME")
+                    state["IN_ROOM"] = True
+                    state["ROOM"] = room_name
             
-            else:
-                room_name = input("Enter the name of the new chat room: ")
-                password = create_password()
+                # message type that disconnected a user from a room, user now needs room reassignment
+                case "REJOIN":
+                 
+                    server_message = msg.get("MESSAGE")
 
-                create_room(s, room_name, state['USER'], password)
-               
-    else:
-        print("There are currently no chat rooms to join. Please create one. ")
-        room_name = input("Enter the name of the new chat room: ")
+                    print(f"[Server]: {server_message}")
 
-        password = create_password()
+                    # unassign user flags
+                    state["IN_ROOM"] = False
+                    state["ROOM"] = None
+                    
+                    # drain queue, clear old messages
+                    try:
+                        while True:
+                            user_input_box.get_nowait()
+                    except queue.Empty:
+                        pass
 
-        if password:
-            create_room(s, room_name, state['USER'], password)
-        else:
-            create_room(s, room_name, state['USER'])
+                    chat_rooms = msg.get("CHAT_ROOMS")
 
-        create_room(s, room_name, state['USER'])
+                    # assign user a room
+                    room_assignment(chat_rooms)
 
-    # update client's room state
-    state['ROOM'] = room_name
-    state['IN_ROOM'] = True
+                # message type that indicates a logic error
+                case "ERROR":
+                    
+                    error_message = msg.get("MESSAGE")
 
-    input_enabled.set()
-    return room_name
+                    print(f"[Error]: {error_message}")
+                    state["RUNNING"] = False
+            
 
+        # User message to room logic
+        user_message = user_input_box.get()
+        send_message(s, {"TYPE": "SEND", "ROOM_NAME": state["ROOM"], "MESSAGE": user_message})
 
 
 if __name__ == "__main__":

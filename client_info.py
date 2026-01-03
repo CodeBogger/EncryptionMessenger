@@ -1,4 +1,5 @@
 class Client:
+    
     def __init__(self, socket, user_name, assigned_room):
         self.socket = socket
         self.user_name = user_name
